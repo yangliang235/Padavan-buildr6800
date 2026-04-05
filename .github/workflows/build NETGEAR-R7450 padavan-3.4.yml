@@ -43,13 +43,10 @@ jobs:
         echo ${{ github.event.inputs.release }}
         echo 
         echo 当前目录:$(pwd)
-        # 版本号,用日期
         VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
-        # $GITHUB_ENV变量必须要在下一个流程才生效
         echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
         val1=$TNAME
-        #val2=$(echo $val1 | sed 's/ /-/')
         echo "NAME=${val1}_3.4_$VERSION" >> $GITHUB_ENV
         echo "TAG=v$VERSION" >> $GITHUB_ENV
         ip addr
@@ -88,11 +85,16 @@ jobs:
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         for m in $TNAME;
         do
-        if [ ! -f configs/templates/$m.config ] ; then
-        echo "configs/templates/$m.config not found "
-        exit 0
-        fi
+        echo "============================================"
+        echo "  编译型号：$m"
+        echo "============================================"
+
+        # 【核心修复】必须在 trunk 目录复制 .config
         cp -f configs/templates/$m.config .config
+
+        # 检查是否复制成功
+        ls -la .config
+
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_SERVER/d' .config
@@ -130,7 +132,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
-        
+
         echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> .config
@@ -164,6 +166,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=n" >> .config
         
+        # 【终极修复】全程不切换目录！一直在 trunk 里执行 make
         sudo make
         sudo mv -f images/*.trx /opt/images/
         done
