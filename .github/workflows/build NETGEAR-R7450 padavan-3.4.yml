@@ -68,7 +68,7 @@ jobs:
     - name: Clone source code
       run: |
         git clone --depth=1 $REPOSITORY_URL ${{ env.DIR }}
-        cd ${{ env.DIR }}/trunk  # 修复点：进入 trunk 目录
+        cd ${{ env.DIR }}/trunk
         sed -i '/cp -f/d' Makefile
         mkdir -p /opt/images/                        
     - name: Build Firmware
@@ -94,9 +94,6 @@ jobs:
         fi
         cp -f configs/templates/$m.config .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
-        ############################################################################################
-        #因不同型号配置功能不一样，所以先把配置项删除，如果你自己要添加其他的，也要写上删除这一条，切记！！！
-        ############################################################################################
         sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_SERVER/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_CLIENT/d' .config
@@ -133,9 +130,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
-        ######################################################################
-        #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
-        ######################################################################
+        
         echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> .config
@@ -143,52 +138,32 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config
         echo "CONFIG_FIRMWARE_CPU_1100MHZ=y" >> .config
-        ##科学上网## 
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_KUMASOCKS=n" >> .config
-        ##科学上网##
-        
-        ##广告管理##
         echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_KOOLPROXY=n" >> .config
-        ##广告管理##
-        
-        ##DNS服务##
         echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config
-        ##DNS服务##
-        
-        ##文件管理##
         echo "CONFIG_FIRMWARE_INCLUDE_CADDY=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_CADDYBIN=n" >> .config
-        ##文件管理##
-        
-        ##音乐解锁##
         echo "CONFIG_FIRMWARE_INCLUDE_WYY=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_WYYBIN=n" >> .config
-        ##音乐解锁##
-        
-        ##内网穿透服务##
         echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_FRPC=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_DDNSTO=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >>.config
-        ##内网穿透服务##
         echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=n" >> .config
         
-        ########################### 关键修复 ###########################
-        # make 必须在 trunk 目录里面执行！
-        ###############################################################
         sudo make
         sudo mv -f images/*.trx /opt/images/
         done
@@ -221,7 +196,7 @@ jobs:
         path: /opt/images        
     - name: Upload images to Releases
       if: ${{ github.event.inputs.release == 'yes' }}
-      uses: softprops/gh-release@master
+      uses: softprops/action-gh-release@v2
       with:
         name: ${{ env.NAME }}
         tag_name: ${{ env.TAG }}
