@@ -15,7 +15,7 @@ on:
 env:
   MHZ: 1100               # CPU超频频率 必须为20的倍数
   TNAME: ${{ github.event.inputs.production }}
-  REPOSITORY_URL: https://github.com/xiaiohuan/Padavan-KVR
+  REPOSITORY_URL: https://github.com/lmq8267/frokvb1980
 
 jobs:
   build:
