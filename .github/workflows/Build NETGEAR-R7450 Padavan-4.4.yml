@@ -1,12 +1,12 @@
 # 注意：修改 default:    中的型号为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
-name: Build NETGEAR-R6800 Padavan-4.4
+name: Build NETGEAR-BZA Padavan-4.4
 
 on:
   workflow_dispatch:
     inputs:
       production:
         description: 设置编译的固件型号,空格分隔.
-        default: "NETGEAR-R6800"
+        default: "NETGEAR-BZV"
         required: false
       release:
         description: "是否需要发布到Release? (不发布也可以到Artifacts下载)"
