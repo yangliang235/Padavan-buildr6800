@@ -13,7 +13,7 @@ on:
         default: 'yes'
         required: false
 env:
-  MHZ: 1100               # CPU超频频率 必须为20的倍数
+  MHZ: 900               # CPU超频频率 必须为20的倍数
   TNAME: ${{ github.event.inputs.production }}
   REPOSITORY_URL: https://github.com/lmq8267/padavan-KVR
 
@@ -88,10 +88,13 @@ jobs:
         echo "============================================"
         echo "  编译型号：$m"
         echo "============================================"
+
         # 【核心修复】必须在 trunk 目录复制 .config
         cp -f configs/templates/$m.config .config
+
         # 检查是否复制成功
         ls -la .config
+
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_SERVER/d' .config
@@ -129,6 +132,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+
         echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> .config
