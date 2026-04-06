@@ -1,40 +1,207 @@
-name: Build Padavan Final
+# 注意：修改 default:    中的型号为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
+name: Build NETGEAR-BZV Padavan-3.4
 
 on:
   workflow_dispatch:
     inputs:
       production:
-        description: 型号
+        description: 设置编译的固件型号,空格分隔.
         default: "NETGEAR-BZV"
         required: false
+      release:
+        description: "是否需要发布到Release? (不发布也可以到Artifacts下载)"
+        default: 'yes'
+        required: false
+env:
+  MHZ: 1100               # CPU超频频率 必须为20的倍数
+  TNAME: ${{ github.event.inputs.production }}
+  REPOSITORY_URL: https://github.com/lmq8267/padavan-KVR
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y ncurses-dev libssl-dev liblzma-dev zip unzip bison flex gperf
-        sudo apt install -y autoconf automake libtool-bin python3-docutils autopoint gettext
-
-    - name: Clone clean source
-      run: |
-        git clone --depth=1 https://github.com/hanwckf/padavan-ng.git /opt/rt-n56u
-        cd /opt/rt-n56u
-        git pull
-
-    - name: Build firmware
-      run: |
-        cd /opt/rt-n56u/trunk
-        cp configs/templates/NETGEAR-BZV.config .config
-        make clean
-        make
-
-    - name: Upload
-      uses: actions/upload-artifact@v4
+    - uses: actions/checkout@main
+    - uses: hendrikmuhs/ccache-action@main
       with:
-        name: firmware
-        path: /opt/rt-n56u/trunk/images/*.trx
+          key: ${{ github.event.inputs.production }}-3.4
+    - uses: actions/setup-go@main
+      with:
+        go-version: '1.23'
+        check-latest: true
+        cache: false
+    - uses: actions/setup-node@main
+      with:
+        node-version: 22
+        check-latest: true      
+    - name: Generate version number
+      run: |
+        whoami
+        id
+        echo input parameters received:
+        echo $TNAME
+        echo ${{ github.event.inputs.release }}
+        echo 
+        echo 当前目录:$(pwd)
+        VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
+        val1=$TNAME
+        echo "NAME=${val1}_3.4_$VERSION" >> $GITHUB_ENV
+        echo "TAG=v$VERSION" >> $GITHUB_ENV
+        ip addr
+    - name: Create a directory
+      run: |
+        echo ${{ env.NAME }}
+        echo ${{ env.TAG }}
+        sudo mkdir -m 777 -p ${{ env.DIR }}
+        sudo mkdir -m 777 -p /opt/images/        
+        echo 开始编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt        
+    - name: Prepare environment
+      run: |
+          sudo apt update
+          sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache        
+    - name: Clone source code
+      run: |
+        git clone --depth=1 $REPOSITORY_URL ${{ env.DIR }}
+        cd ${{ env.DIR }}/trunk
+        sed -i '/cp -f/d' Makefile
+        mkdir -p /opt/images/                        
+    - name: Build Firmware
+      run: |
+        if [ -f public/e2fsprogs.Makefile ] ; then
+        mv -f public/e2fsprogs.Makefile ${{ env.DIR }}/trunk/user/e2fsprogs/Makefile
+        echo "Makefile file copy success"
+        else
+        exit 1
+        fi
+        cd ${{ env.DIR }}/trunk
+        echo "CPU超频到$MHZ"mhz
+        echo "修改CPU频率"
+        clock=`echo "obase=16 ; ibase=10 ; (((($MHZ/20)-1)*16+2))" | bc`
+        echo "16进制$clock"
+        sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        for m in $TNAME;
+        do
+        echo "============================================"
+        echo "  编译型号：$m"
+        echo "============================================"
+        # 【核心修复】必须在 trunk 目录复制 .config
+        cp -f configs/templates/$m.config .config
+        # 检查是否复制成功
+        ls -la .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_SERVER/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_CLIENT/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_CMD/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SSSERVER/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ADBYBY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPC/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_TUNSAFE/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALIDDNS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SSOBFS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_V2RAY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_XRAY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_TROJAN/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_KOOLPROXY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_CADDY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_CADDYBIN/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_WYY/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_WYYBIN/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ZEROTIER/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_DDNSTO/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_WIREGUARD/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALDRIVER/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MSD_LITE/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config
+        echo "CONFIG_FIRMWARE_CPU_1100MHZ=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_KUMASOCKS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_KOOLPROXY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDYBIN=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_WYY=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_WYYBIN=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPC=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_DDNSTO=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >>.config
+        echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=n" >> .config
+        
+        # 【终极修复】全程不切换目录！一直在 trunk 里执行 make
+        sudo make
+        sudo mv -f images/*.trx /opt/images/
+        done
+    - name: Collect information
+      if: true
+      run: |
+        cd /opt/images
+        echo 完成编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt        
+        echo  >> /opt/images/readme.txt
+        echo 编译版本 >> /opt/images/readme.txt        
+        pushd ${{ env.DIR }}
+        git ls-remote --get-url origin >> /opt/images/readme.txt
+        git log -1 >> /opt/images/readme.txt
+        popd        
+        echo  >> /opt/images/readme.txt
+        echo md5校验值 >> /opt/images/readme.txt
+        cd /opt/images
+        for i in *.trx
+        do
+          mv -v "$i" "${i%.*}-${{ env.VERSION }}.trx"
+        done
+        md5sum *.trx >> /opt/images/readme.txt || echo
+        ls -l              
+    - name : Upload images to Artifact
+      uses: actions/upload-artifact@main
+      if: true
+      with:
+        name: ${{ env.NAME }}
+        path: /opt/images        
+    - name: Upload images to Releases
+      if: ${{ github.event.inputs.release == 'yes' }}
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ${{ env.NAME }}
+        tag_name: ${{ env.TAG }}
+        body_path: /opt/images/readme.txt
+        draft: false
+        prerelease: false
+        files: /opt/images/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
